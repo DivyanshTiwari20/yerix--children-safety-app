@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, Animated, PanResponder, TextInput } from "react";
-import { StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity, Platform, Alert } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Animated, PanResponder, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, SafeAreaView, Alert } from "react-native";
 import { useAppState } from "@/state/store";
 import { getSettings, putSettings, type Settings } from "@/services/api";
 import { Button } from "@/components/Button";
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   sliderLabel: { fontSize: 16, fontWeight: "800", width: 30 },
   track: { flex: 1, height: 6, borderRadius: 3, backgroundColor: "#e5e7eb", overflow: "hidden" },
   thumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#dc2626", position: "absolute", left: 0 },
-  sliderHit: { ...StyleSheet.absoluteFillObject, height: 44 },
+  sliderHit: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, height: 44 },
   sliderHint: { fontSize: 12, color: "#9ca3af", marginTop: 4 },
   phraseRow: {
     flexDirection: "row",

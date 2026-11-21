@@ -2,7 +2,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View, SafeAreaView, ScrollView, Button as RNButton, Platform, Alert } from "react-native";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
-import { Audio } from "expo-av";
+import { AudioModule } from "expo-audio";
 
 export default function PermissionsScreen() {
   const [status, setStatus] = useState<{ location?: string; notification?: string; microphone?: string }>({});
@@ -20,7 +20,7 @@ export default function PermissionsScreen() {
 
   const requestMicrophone = async () => {
     try {
-      await Audio.requestPermissionsAsync();
+      await AudioModule.requestRecordingPermissionsAsync();
       setStatus((prev) => ({ ...prev, microphone: "granted" }));
     } catch (e) {
       setStatus((prev) => ({ ...prev, microphone: "denied" }));

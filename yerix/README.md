@@ -25,6 +25,21 @@ In the output, you'll find options to open the app in a
 
 You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Android testing and APK notes
+
+The current `development` profile in `eas.json` creates an internal **development-client APK**, not a standalone APK. A development client needs Metro running to load the JavaScript bundle. After installing it, start Metro from `yerix` with `npx expo start --dev-client` and keep the phone and PC on the same Wi-Fi.
+
+To build that development APK, run these from `yerix`:
+
+```powershell
+eas login
+eas build --profile development --platform android
+```
+
+For local phone testing, the configured API URL is `http://192.168.1.34:3000`. The server listens on port 3000; start it from `yerix-server` with `npx tsx src/index.ts`. If the PC's LAN IP changes, update `yerix/.env`, `yerix/eas.json`, and `yerix-server/.env` together. The PC and phone must be able to reach each other over the LAN.
+
+A standalone APK that does not require Metro needs a separate non-development EAS profile with Android APK output; the current `preview` and `production` profiles are empty. The server environment still contains placeholder Supabase/Twilio values, and `yerix-server/.env` uses `TWILIO_PHONE_NUMBER` while the server code reads `TWILIO_FROM_NUMBER`. Set real local service configuration and align that key before relying on live backend or SMS behavior. Do not use the app as an emergency service until those paths have been configured and tested.
+
 ## Get a fresh project
 
 When you're ready, run:

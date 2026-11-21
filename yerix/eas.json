@@ -1,0 +1,16 @@
+{
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://192.168.1.34:3000"
+      }
+    },
+    "preview": {},
+    "production": {}
+  }
+}

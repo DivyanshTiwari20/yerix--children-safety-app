@@ -39,3 +39,19 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## PROGRESS LOG
+
+### 2026-11-21
+- Step 1: `ipconfig` identified active Wi-Fi IPv4 LAN_IP as `192.168.1.34`.
+- Step 2: Confirmed `.env` sets `EXPO_PUBLIC_API_URL=http://192.168.1.34:3000`.
+- Step 4: Created valid `eas.json` with the requested development profile and empty preview/production profiles.
+- Step 3: Confirmed server `.env` has `PORT=3000` and `PUBLIC_BASE_URL=http://192.168.1.34:3000`; other values were left unchanged.
+- Step 5: Added `.env` to `.gitignore`; `node_modules/` is ignored and `/android` is not ignored.
+- Step 6: Initialized local Git and committed `dev build`; global Git identity was already configured.
+- Step 7: `npx tsc --noEmit` passed in `yerix-server`; it failed in `yerix` with existing TypeScript errors (missing `expo-av`/CSS declarations, React Native exports/types, and implicit-any errors). No install/build command was run.
+
+### 2026-11-21 follow-up
+- Replaced only the missing microphone permission import with the already-configured `expo-audio` permission API; corrected React/React Native imports and the RN absolute-fill style type; preserved the tab ref and added CSS module typings.
+- No dependencies, UI flows, or app configuration were changed. `npx tsc --noEmit` now passes in both `yerix` and `yerix-server`.
+- README now distinguishes the Metro-dependent development-client APK from a standalone APK and records LAN/backend setup blockers. No EAS, install, audit, or build command was run.
