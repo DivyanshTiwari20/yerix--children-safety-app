@@ -32,3 +32,10 @@ create table if not exists location_points (
   lng double precision not null,
   created_at timestamptz default now()
 );
+
+grant usage on schema public to service_role;
+grant select, insert, delete on table public.contacts to service_role;
+grant select, insert, update on table public.settings to service_role;
+grant select, insert, update on table public.emergencies to service_role;
+grant select, insert on table public.location_points to service_role;
+grant usage, select on sequence public.location_points_id_seq to service_role;

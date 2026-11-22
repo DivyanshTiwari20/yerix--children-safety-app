@@ -102,14 +102,13 @@ export async function startSafeMode(durationMin: number): Promise<void> {
     }
 
     await loadModel("model-en-us");
-    await voskStart({ grammar: [...VOSK_GRAMMAR] });
-
     voskPartialSub = onPartialResult((text) => {
       handleVoiceResult(text, directTrigger);
     });
     voskResultSub = onResult((text) => {
       handleVoiceResult(text, directTrigger);
     });
+    await voskStart({ grammar: [...VOSK_GRAMMAR] });
 
     startShakeListener(() => {
       startEmergencyFlow("shake");

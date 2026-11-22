@@ -38,7 +38,7 @@ eas login
 eas build --profile development --platform android
 ```
 
-Foreground-service manifest changes require a new development APK and reinstall; restarting Metro alone does not update the installed Android manifest.
+Foreground-service manifest changes and Vosk model packaging changes require a new development APK and reinstall; restarting Metro alone does not update the installed Android manifest or model assets.
 
 For local phone testing, the configured API URL is `http://192.168.1.34:3000`. The server listens on port 3000; start it from `yerix-server` with `npx tsx src/index.ts`. If the PC's LAN IP changes, update `yerix/.env`, `yerix/eas.json`, and `yerix-server/.env` together. The PC and phone must be able to reach each other over the LAN.
 
