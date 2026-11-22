@@ -9,6 +9,7 @@ const PERMISSIONS = [
   "ACCESS_FINE_LOCATION",
   "ACCESS_BACKGROUND_LOCATION",
   "POST_NOTIFICATIONS",
+  "USE_FULL_SCREEN_INTENT",
   "READ_CONTACTS",
   "CALL_PHONE",
   "WAKE_LOCK",
@@ -28,6 +29,15 @@ const withSafeMode = (config) => {
       ) ?? config.modResults.manifest.application?.[0];
 
     if (!mainApplication) return config;
+
+    const mainActivity = mainApplication.activity?.find((activity) =>
+      activity.$?.["android:name"]?.endsWith(".MainActivity")
+    );
+    if (mainActivity) {
+      mainActivity.$ = mainActivity.$ ?? {};
+      mainActivity.$["android:showWhenLocked"] = "true";
+      mainActivity.$["android:turnScreenOn"] = "true";
+    }
 
     if (!mainApplication.service) {
       mainApplication.service = [];

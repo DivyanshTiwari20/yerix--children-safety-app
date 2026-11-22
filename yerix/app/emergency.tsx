@@ -7,6 +7,8 @@ import { useAppState } from "@/state/store";
 import {
   subscribe,
   getEmergencyCountdown,
+  getEmergencyStatus,
+  openWhatsAppAlertForContact,
   startEmergencyFlow,
   cancelEmergency,
   endEmergency,
@@ -14,7 +16,6 @@ import {
   type EmergencyStatus,
 } from "@/services/emergency";
 import { getContacts, type Contact } from "@/services/api";
-import { openWhatsApp } from "@/services/whatsapp";
 import { EMERGENCY_NUMBER, DEV_USER_ID } from "@/constants";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -40,6 +41,9 @@ export default function EmergencyScreen() {
     startEmergencyFlow("sos");
     return () => {
       unsub.current?.();
+      if (getEmergencyStatus() === "active") {
+        endEmergency();
+      }
       resetEmergency();
     };
   }, []);
@@ -100,7 +104,7 @@ export default function EmergencyScreen() {
                     <Text style={styles.contactPhone}>{contact.phone}</Text>
                   </View>
                   <Button
-                    onPress={() => trackUrl && openWhatsApp(contact.phone, trackUrl)}
+                    onPress={() => trackUrl && openWhatsAppAlertForContact(contact.phone, trackUrl)}
                     disabled={!trackUrl}
                     style={styles.whatsAppButton}
                   >
@@ -110,7 +114,7 @@ export default function EmergencyScreen() {
               ))}
               {contacts.length === 0 && <Text style={styles.noContacts}>No emergency contacts added.</Text>}
             </Card>
-            <Button onPress={handleCall} style={styles.actionButton}>Call {EMERGENCY_NUMBER}</Button>
+            <Button onPress={handleCall} style={styles.actionButton}>Call Indian emergency services ({EMERGENCY_NUMBER})</Button>
             {isActive && (
               <Button onPress={handleSafe} style={styles.actionButton}>I&apos;m safe</Button>
             )}

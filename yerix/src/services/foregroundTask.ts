@@ -1,12 +1,15 @@
 import notifee, {
+  AndroidCategory,
   AndroidForegroundServiceType,
   AndroidImportance,
+  AndroidVisibility,
   type NotificationAndroid,
 } from "@notifee/react-native";
+import { COUNTDOWN_SECONDS } from "@/constants";
 
 const CHANNEL_ID = "safe-mode";
 const NOTIFICATION_ID = "safe-mode";
-const EMERGENCY_CHANNEL_ID = "emergency-alerts";
+const EMERGENCY_CHANNEL_ID = "emergency-alerts-v2";
 const EMERGENCY_NOTIFICATION_ID = "emergency-alert";
 
 export function registerForegroundTask(): void {
@@ -21,20 +24,36 @@ export async function createSafeModeChannel(): Promise<void> {
   });
 }
 
-export async function displayEmergencyNotification(): Promise<void> {
+export async function displayEmergencyNotification(phase: "countdown" | "active"): Promise<void> {
   await notifee.createChannel({
     id: EMERGENCY_CHANNEL_ID,
     name: "Emergency alerts",
     importance: AndroidImportance.HIGH,
+    visibility: AndroidVisibility.PUBLIC,
   });
   await notifee.displayNotification({
     id: EMERGENCY_NOTIFICATION_ID,
     title: "YERIX emergency",
-    body: "An emergency was triggered on this device.",
+    body:
+      phase === "countdown"
+        ? `Emergency alert starts in ${COUNTDOWN_SECONDS} seconds. Tap to open YERIX and cancel.`
+        : "Emergency alert is active. Tap to open YERIX and send a WhatsApp message.",
     android: {
       channelId: EMERGENCY_CHANNEL_ID,
       pressAction: { id: "default" },
+      ...(phase === "countdown" ? { fullScreenAction: { id: "default" } } : {}),
+      category: AndroidCategory.ALARM,
+      importance: AndroidImportance.HIGH,
+      visibility: AndroidVisibility.PUBLIC,
+      lightUpScreen: true,
+      autoCancel: false,
     },
+  });
+}
+
+export function clearEmergencyNotification(): void {
+  notifee.cancelNotification(EMERGENCY_NOTIFICATION_ID).catch((error) => {
+    console.error("Failed to clear emergency notification", error);
   });
 }
 

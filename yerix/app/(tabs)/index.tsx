@@ -1,13 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { router, usePathname } from "expo-router";
 import { useAppState } from "@/state/store";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { SOSButton } from "@/components/SOSButton";
 import { StatusPill } from "@/components/StatusPill";
 import { startSafeMode, stopSafeMode } from "@/services/safeMode";
-import { startEmergencyFlow } from "@/services/emergency";
+import { startEmergencyFlow, subscribe } from "@/services/emergency";
 import { SAFE_MODE_DEFAULT_MIN, SAFE_MODE_OPTIONS_MIN } from "@/constants";
 import { Colors } from "@/theme/colors";
 import { Radius, Spacing } from "@/theme/spacing";
@@ -19,6 +20,9 @@ export default function HomeScreen() {
   const [duration, setDuration] = useState(SAFE_MODE_DEFAULT_MIN);
   const [safeModeEnd, setSafeModeEnd] = useState<number | null>(null);
   const [armSecondsLeft, setArmSecondsLeft] = useState(0);
+  const pathname = usePathname();
+  const currentPath = useRef(pathname);
+  const emergencyRouteOpen = useRef(pathname === "/emergency");
 
   const active = safeModeEnd != null && Date.now() < safeModeEnd;
   const remaining = active ? Math.max(0, Math.ceil((safeModeEnd - Date.now()) / 60000)) : 0;
@@ -30,6 +34,28 @@ export default function HomeScreen() {
   const endTime = safeModeEnd == null
     ? ""
     : new Date(safeModeEnd).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  useEffect(() => {
+    currentPath.current = pathname;
+    emergencyRouteOpen.current = pathname === "/emergency";
+  }, [pathname]);
+
+  useEffect(() => {
+    return subscribe((status) => {
+      if (status === "idle") {
+        emergencyRouteOpen.current = false;
+        return;
+      }
+      if (
+        (status === "countdown" || status === "active") &&
+        currentPath.current !== "/emergency" &&
+        !emergencyRouteOpen.current
+      ) {
+        emergencyRouteOpen.current = true;
+        router.push("/emergency");
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (state.safeModeEnd != null) setSafeModeEnd(state.safeModeEnd);

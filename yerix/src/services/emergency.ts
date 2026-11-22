@@ -15,7 +15,10 @@ import {
   TRIGGER_DEBOUNCE_MS,
   DEV_USER_ID,
 } from "@/constants";
-import { displayEmergencyNotification } from "@/services/foregroundTask";
+import {
+  clearEmergencyNotification,
+  displayEmergencyNotification,
+} from "@/services/foregroundTask";
 
 export type EmergencyStatus = "idle" | "countdown" | "active" | "ended";
 
@@ -29,6 +32,7 @@ let lastTrigger = 0;
 let listeners = new Set<Listener>();
 let emergencyId: string | null = null;
 let trackUrl: string | null = null;
+let lastCoordinates: Coordinates | null = null;
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
 let locationTimer: ReturnType<typeof setInterval> | null = null;
 let locationSub: { remove: () => void } | null = null;
@@ -36,6 +40,7 @@ let countdownSeconds = COUNTDOWN_SECONDS;
 
 export function subscribe(listener: Listener): () => void {
   listeners.add(listener);
+  listener(status, { emergencyId, trackUrl });
   return () => listeners.delete(listener);
 }
 
@@ -53,6 +58,12 @@ export function getEmergencyCountdown(): number {
 
 export function startEmergencyFlow(trigger: string): void {
   const now = Date.now();
+  if (status === "active" && trigger === "voice") {
+    if (!trackUrl || now - lastTrigger < TRIGGER_DEBOUNCE_MS) return;
+    lastTrigger = now;
+    sendWhatsAppAlert(trackUrl).catch(reportWhatsAppError);
+    return;
+  }
   if (status !== "idle") return;
   if (now - lastTrigger < TRIGGER_DEBOUNCE_MS) return;
   lastTrigger = now;
@@ -60,6 +71,9 @@ export function startEmergencyFlow(trigger: string): void {
   status = "countdown";
   countdownSeconds = COUNTDOWN_SECONDS;
   emit();
+  displayEmergencyNotification("countdown").catch((error) => {
+    console.error("Failed to display emergency countdown notification", error);
+  });
 
   countdownTimer = setInterval(() => {
     countdownSeconds -= 1;
@@ -79,7 +93,7 @@ async function goActive(trigger: string): Promise<void> {
   emit();
 
   try {
-    await displayEmergencyNotification();
+    await displayEmergencyNotification("active");
   } catch (error) {
     console.error("Failed to display local emergency notification", error);
   }
@@ -91,6 +105,7 @@ async function goActive(trigger: string): Promise<void> {
     console.error("Failed to get emergency location", error);
     Alert.alert("Unable to get location");
   }
+  lastCoordinates = coordinates;
 
   try {
     const { id, trackUrl: url } = await startEmergencyApi(
@@ -106,6 +121,7 @@ async function goActive(trigger: string): Promise<void> {
     if (coordinates) {
       try {
         locationSub = await watchLocation((la, lo) => {
+          lastCoordinates = { lat: la, lng: lo };
           if (emergencyId) {
             postLocation(emergencyId, la, lo).catch(() => {});
           }
@@ -118,24 +134,53 @@ async function goActive(trigger: string): Promise<void> {
 
     locationTimer = setInterval(() => {}, LOCATION_INTERVAL_MS);
 
-    const contacts = await getContacts(DEV_USER_ID);
-    if (contacts?.length > 0 && trackUrl) {
-      let alertMessage = "I need help. Here is my live location:";
-      try {
-        const settings = await getSettings(DEV_USER_ID);
-        alertMessage = settings.alert_message.trim() || alertMessage;
-      } catch (error) {
-        console.error("Failed to load WhatsApp alert message", error);
-      }
-      openWhatsApp(contacts[0].phone, `${alertMessage} ${trackUrl}`).catch((error) => {
-        console.error("Failed to open WhatsApp alert", error);
-        Alert.alert("Unable to open WhatsApp", String((error as Error).message));
-      });
+    try {
+      await sendWhatsAppAlert(url);
+    } catch (error) {
+      reportWhatsAppError(error);
     }
   } catch (e) {
     console.error("emergency active error", e);
     Alert.alert("Unable to start emergency");
   }
+}
+
+async function sendWhatsAppAlert(url: string): Promise<void> {
+  const contacts = await getContacts(DEV_USER_ID);
+  if (contacts.length === 0) {
+    Alert.alert("No emergency contacts", "Add a contact to send a WhatsApp alert.");
+    return;
+  }
+
+  await openWhatsAppAlertForContact(contacts[0].phone, url);
+}
+
+export async function openWhatsAppAlertForContact(phone: string, url: string): Promise<void> {
+  let alertMessage = "I need help. Here is my live location:";
+  try {
+    const settings = await getSettings(DEV_USER_ID);
+    alertMessage = settings.alert_message.trim() || alertMessage;
+  } catch (error) {
+    console.error("Failed to load WhatsApp alert message", error);
+  }
+
+  const mapUrl = lastCoordinates
+    ? `https://maps.google.com/?q=${lastCoordinates.lat},${lastCoordinates.lng}`
+    : null;
+  const message = [
+    alertMessage,
+    mapUrl ? `Current location in Google Maps: ${mapUrl}` : null,
+    `Live tracking: ${url}`,
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n\n");
+  await openWhatsApp(phone, message);
+}
+
+function reportWhatsAppError(error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error("Failed to open WhatsApp alert", error);
+  Alert.alert("Unable to open WhatsApp", message);
 }
 
 export function cancelEmergency(): void {
@@ -148,9 +193,11 @@ export function cancelEmergency(): void {
     cancelEmergencyApi(emergencyId, DEV_USER_ID).catch(() => {});
     emergencyId = null;
   }
+  lastCoordinates = null;
   trackUrl = null;
   countdownSeconds = COUNTDOWN_SECONDS;
   status = "idle";
+  clearEmergencyNotification();
   emit();
 }
 
@@ -168,9 +215,11 @@ export function endEmergency(): void {
     endEmergencyApi(emergencyId, DEV_USER_ID).catch(() => {});
     emergencyId = null;
   }
+  lastCoordinates = null;
   trackUrl = null;
   countdownSeconds = COUNTDOWN_SECONDS;
   status = "ended";
+  clearEmergencyNotification();
   emit();
 }
 
@@ -187,9 +236,11 @@ export function resetEmergency(): void {
     locationSub.remove();
     locationSub = null;
   }
+  lastCoordinates = null;
   emergencyId = null;
   trackUrl = null;
   countdownSeconds = COUNTDOWN_SECONDS;
   status = "idle";
+  clearEmergencyNotification();
   emit();
 }
