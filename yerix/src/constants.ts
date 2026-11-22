@@ -9,7 +9,28 @@ export const TRIGGER_DEBOUNCE_MS = 10000;
 export const SHAKE_THRESHOLD_G = 2.5;
 export const SHAKE_PEAKS = 3;
 export const SHAKE_WINDOW_MS = 1500;
-export const VOSK_GRAMMAR = ["yerix", "help me", "save me", "[unk]"] as const;
+export const WAKE_PHRASES = [
+  "hey yerix",
+  "hi yerix",
+  "yerix",
+  "hey rix",
+  "hi rix",
+  "yeah ricks",
+  "your ex",
+  "yerics",
+  "eric's",
+] as const;
+export const COMMAND_PHRASES = ["help me", "save me", "send alert", "send the alert"] as const;
+export const ARM_WINDOW_MS = 8000;
+const COMBINED_VOICE_PHRASES = WAKE_PHRASES.flatMap((wakePhrase) =>
+  COMMAND_PHRASES.map((commandPhrase) => `${wakePhrase} ${commandPhrase}`)
+);
+export const VOSK_GRAMMAR = [
+  ...WAKE_PHRASES,
+  ...COMMAND_PHRASES,
+  ...COMBINED_VOICE_PHRASES,
+  "[unk]",
+];
 export const EMERGENCY_NUMBER = "112";
 
-export const API_URL = "http://localhost:4000";
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://192.168.1.34:3000";

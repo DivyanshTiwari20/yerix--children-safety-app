@@ -18,6 +18,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_API_KEY_SID = process.env.TWILIO_API_KEY_SID;
+const TWILIO_API_KEY_SECRET = process.env.TWILIO_API_KEY_SECRET;
 const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER;
 const PUBLIC_BASE_URL = process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`;
 
@@ -25,9 +27,18 @@ const E164 = /^\+[1-9]\d{1,14}$/;
 const MAX_CONTACTS = 5;
 const ALLOWED_TRIGGERS = ["voice", "sos", "shake", "test"];
 
-const dryRun = !(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER);
+const hasTwilioCredentials = Boolean(
+  TWILIO_ACCOUNT_SID &&
+    TWILIO_FROM_NUMBER &&
+    (TWILIO_AUTH_TOKEN || (TWILIO_API_KEY_SID && TWILIO_API_KEY_SECRET))
+);
+const dryRun = !hasTwilioCredentials;
 const supabase = createClient(SUPABASE_URL ?? "", SUPABASE_SERVICE_KEY ?? "");
-const twilioClient = dryRun ? null : twilio(TWILIO_ACCOUNT_SID as string, TWILIO_AUTH_TOKEN as string);
+const twilioClient = dryRun
+  ? null
+  : TWILIO_API_KEY_SID && TWILIO_API_KEY_SECRET
+    ? twilio(TWILIO_API_KEY_SID, TWILIO_API_KEY_SECRET, { accountSid: TWILIO_ACCOUNT_SID! })
+    : twilio(TWILIO_ACCOUNT_SID!, TWILIO_AUTH_TOKEN!);
 
 const app = express();
 app.use(cors());
@@ -160,12 +171,18 @@ async function notifyContacts(userId: string, trackUrl: string): Promise<void> {
 }
 
 app.post("/api/emergencies", async (req: express.Request, res: express.Response) => {
-  const { trigger, lat, lng } = req.body as { trigger?: string; lat?: number; lng?: number };
+  const { trigger, lat, lng } = req.body as {
+    trigger?: string;
+    lat?: number | null;
+    lng?: number | null;
+  };
   if (!trigger || !ALLOWED_TRIGGERS.includes(trigger)) {
     return res.status(400).json({ error: "invalid trigger" });
   }
-  if (typeof lat !== "number" || typeof lng !== "number") {
-    return res.status(400).json({ error: "lat and lng are required" });
+  const hasCoordinates = typeof lat === "number" && typeof lng === "number";
+  const hasNoCoordinates = lat == null && lng == null;
+  if (!hasCoordinates && !hasNoCoordinates) {
+    return res.status(400).json({ error: "lat and lng must both be provided or both be null" });
   }
   const { data, error } = await supabase
     .from("emergencies")
@@ -173,7 +190,12 @@ app.post("/api/emergencies", async (req: express.Request, res: express.Response)
     .select()
     .single();
   if (error) return res.status(500).json({ error: error.message });
-  await supabase.from("location_points").insert({ emergency_id: data.id, lat, lng });
+  if (hasCoordinates) {
+    const { error: locationError } = await supabase
+      .from("location_points")
+      .insert({ emergency_id: data.id, lat, lng });
+    if (locationError) console.error("failed to save initial emergency location", locationError);
+  }
   const trackUrl = `${PUBLIC_BASE_URL}/track/${data.id}`;
   if (trigger !== "test") {
     await notifyContacts(req.userId as string, trackUrl);

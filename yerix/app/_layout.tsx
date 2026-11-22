@@ -1,13 +1,19 @@
 import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { AppProvider } from "@/state/store";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 export default function Layout() {
   return (
-    <Stack>
-      <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="contacts" options={{ title: "Contacts" }} />
-      <Stack.Screen name="settings" options={{ title: "Settings" }} />
-      <Stack.Screen name="emergency" options={{ headerShown: false }} />
-      <Stack.Screen name="permissions" options={{ title: "Permissions" }} />
-    </Stack>
+    <SafeAreaProvider>
+      <StatusBar style="dark" hidden={false} />
+      <AppProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="emergency" />
+          <Stack.Screen name="permissions" />
+        </Stack>
+      </AppProvider>
+    </SafeAreaProvider>
   );
 }

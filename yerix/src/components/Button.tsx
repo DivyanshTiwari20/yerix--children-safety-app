@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TouchableOpacity, View, StyleProp, ViewStyle } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, StyleProp, TextStyle, ViewStyle } from "react-native";
 import { useColorScheme } from "react-native";
 import { Colors } from "@/theme/colors";
 import { Radius, Spacing } from "@/theme/spacing";
@@ -9,8 +9,9 @@ export type ButtonProps = {
   variant?: "primary" | "danger" | "outline";
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
 };
-export function Button({ children, onPress, variant = "primary", disabled, style }: ButtonProps) {
+export function Button({ children, onPress, variant = "primary", disabled, style, textStyle }: ButtonProps) {
   const scheme = useColorScheme();
   const c = Colors[scheme === "dark" ? "dark" : "light"];
   const isDanger = variant === "danger";
@@ -23,14 +24,14 @@ export function Button({ children, onPress, variant = "primary", disabled, style
     ? c.danger
     : c.primary;
   const border = isOutline ? c.border : "transparent";
-  const color = disabled ? c.textSecondary : isOutline || isDanger ? c.text : "#fff";
+  const color = disabled ? c.textSecondary : isDanger ? "#fff" : isOutline ? c.text : "#fff";
   return (
     <TouchableOpacity
       style={[styles.container, styles[variant], { backgroundColor: bg, borderColor: border, opacity: disabled ? 0.5 : 1 }, style]}
       onPress={onPress && !disabled ? onPress : undefined}
       disabled={disabled}
     >
-      <Text style={[styles.text, { color }]}>{children}</Text>
+      <Text style={[styles.text, { color }, textStyle]}>{children}</Text>
     </TouchableOpacity>
   );
 }
@@ -38,8 +39,9 @@ export function Button({ children, onPress, variant = "primary", disabled, style
 const styles = StyleSheet.create({
   container: {
     borderRadius: Radius,
-    paddingVertical: Spacing.three,
-    paddingHorizontal: Spacing.five,
+    minHeight: 52,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.four,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
@@ -47,5 +49,5 @@ const styles = StyleSheet.create({
   primary: {},
   danger: {},
   outline: {},
-  text: { fontWeight: "600", fontSize: 16 },
+  text: { fontWeight: "700", fontSize: 16 },
 });

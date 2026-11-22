@@ -6,7 +6,11 @@ export type Emergency = { id: string; user_id: string; trigger: string; status: 
 
 export async function getContacts(userId: string): Promise<Contact[]> {
   const res = await fetch(`${API_URL}/api/contacts`, { headers: { "x-user-id": userId } });
-  if (!res.ok) throw new Error("failed to load contacts");
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+    const message = typeof body.error === "string" ? body.error : `failed to load contacts (${res.status})`;
+    throw new Error(message);
+  }
   return res.json();
 }
 
@@ -16,7 +20,11 @@ export async function addContact(userId: string, name: string, phone: string): P
     headers: { "x-user-id": userId, "content-type": "application/json" },
     body: JSON.stringify({ name, phone }),
   });
-  if (!res.ok) throw new Error("failed to add contact");
+  if (!res.ok) {
+    const body = (await res.json()) as { error?: unknown };
+    const message = typeof body.error === "string" ? body.error : `failed to add contact (${res.status})`;
+    throw new Error(message);
+  }
   return res.json();
 }
 
@@ -41,7 +49,12 @@ export async function putSettings(userId: string, body: Partial<Settings>): Prom
   return res.json();
 }
 
-export async function startEmergencyApi(userId: string, trigger: string, lat: number, lng: number): Promise<{ id: string; trackUrl: string }> {
+export async function startEmergencyApi(
+  userId: string,
+  trigger: string,
+  lat: number | null,
+  lng: number | null
+): Promise<{ id: string; trackUrl: string }> {
   const res = await fetch(`${API_URL}/api/emergencies`, {
     method: "POST",
     headers: { "x-user-id": userId, "content-type": "application/json" },

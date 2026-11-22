@@ -1,27 +1,37 @@
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useColorScheme } from "react-native";
+import { SymbolView } from "expo-symbols";
 import { Colors } from "@/theme/colors";
-import { Radius, Spacing } from "@/theme/spacing";
+import { Spacing } from "@/theme/spacing";
 
 export type ContactRowProps = {
   name: string;
   phone: string;
   onDelete: () => void;
   onPress?: () => void;
+  last?: boolean;
 };
-export function ContactRow({ name, phone, onDelete, onPress }: ContactRowProps) {
+export function ContactRow({ name, phone, onDelete, onPress, last = false }: ContactRowProps) {
   const scheme = useColorScheme();
   const c = Colors[scheme === "dark" ? "dark" : "light"];
+  const initials = name.trim().split(/\s+/).slice(0, 2).map((part) => part[0] ?? "").join("").toUpperCase();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { borderBottomColor: c.border }, !last && styles.divider]}>
+      <View style={[styles.badge, { backgroundColor: c.blueTint }]}>
+        <Text style={[styles.initials, { color: c.primary }]}>{initials || "?"}</Text>
+      </View>
       <TouchableOpacity style={styles.body} onPress={onPress}>
         <View style={styles.textWrap}>
           <Text style={[styles.name, { color: c.text }]}>{name}</Text>
           <Text style={[styles.phone, { color: c.textSecondary }]}>{phone}</Text>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.delete} onPress={onDelete}>
-        <Text style={[styles.deleteText, { color: c.danger }]}>Delete</Text>
+      <TouchableOpacity style={styles.delete} onPress={onDelete} accessibilityLabel={`Delete ${name}`}>
+        <SymbolView
+          name={{ ios: "trash", android: "delete", web: "delete" }}
+          tintColor={c.textSecondary}
+          size={21}
+        />
       </TouchableOpacity>
     </View>
   );
@@ -31,17 +41,22 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: Radius,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.three,
+    minHeight: 72,
+    paddingVertical: Spacing.two,
   },
-  body: { flex: 1 },
-  textWrap: { flex: 1 },
-  name: { fontWeight: "600", fontSize: 15 },
+  divider: { borderBottomWidth: 1 },
+  badge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing.three,
+  },
+  initials: { fontSize: 14, fontWeight: "700" },
+  body: { flex: 1, justifyContent: "center" },
+  textWrap: { justifyContent: "center" },
+  name: { fontWeight: "600", fontSize: 15, marginBottom: 3 },
   phone: { fontSize: 13 },
-  delete: { marginLeft: Spacing.three, padding: Spacing.one },
-  deleteText: { fontSize: 13, fontWeight: "600" },
+  delete: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginLeft: Spacing.two },
 });

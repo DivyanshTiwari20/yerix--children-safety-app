@@ -55,3 +55,14 @@ Docs: https://docs.expo.dev/eas/index.md
 - Replaced only the missing microphone permission import with the already-configured `expo-audio` permission API; corrected React/React Native imports and the RN absolute-fill style type; preserved the tab ref and added CSS module typings.
 - No dependencies, UI flows, or app configuration were changed. `npx tsc --noEmit` now passes in both `yerix` and `yerix-server`.
 - README now distinguishes the Metro-dependent development-client APK from a standalone APK and records LAN/backend setup blockers. No EAS, install, audit, or build command was run.
+- Updated the Home layout with 16-point ScrollView spacing, wrapped duration chips, aligned action rows, a fixed 140x140 SOS control with an internal progress overlay, and a one-line Last heard card. Applied theme-aware foreground and status colors for light and dark modes.
+- Location permission/position failures now show Alerts and allow emergency creation with null coordinates; the emergency API payload type accepts null latitude/longitude.
+- `npx tsc --noEmit` was run in `yerix` and still reports an unrelated route typing error at `src/components/app-tabs.web.tsx:28` for the nonexistent `/explore` route. No build or install was run.
+- 2026-11-21: Added the root SafeAreaProvider + AppProvider tab-stack shell and the Home/Contacts/Settings bottom tab layout; refreshed shared healthcare colors, cards, buttons, and contact-row styling. `@expo/vector-icons` was not present in the app manifest or local modules, so the existing cross-platform `expo-symbols` package is used without adding a dependency.
+- 2026-11-21: Home screen redesigned with the blue Safe Mode hero, duration pills, SOS card, test action, and one-line Last heard card.
+- 2026-11-21: Contacts moved into the tabs group and redesigned with a themed contacts card, initials badges, delete icons, contact count, empty state, and a collapsible add form.
+- 2026-11-21: Settings moved into the tabs group and redesigned with grouped cards, a blue sensitivity slider, phrase switches, and About/version details; existing settings load/save/toggle behavior retained.
+- 2026-11-21: Emergency screen redesigned with the full red countdown view, white cancel action, active tracking/contact card, per-contact WhatsApp actions, emergency call, and safe action; existing service/state flow retained.
+- 2026-11-21: Permissions screen redesigned as individual themed permission cards with pastel symbol badges, reasons, status, Allow controls, and a working Back to Home route.
+- 2026-11-21: Updated the legacy web tab component to target the grouped Home, Contacts, and Settings routes used by the new navigation.
+- 2026-11-21: Contacts accepts a 10-digit Indian mobile number and prefixes +91 before submitting to the existing E.164 API.

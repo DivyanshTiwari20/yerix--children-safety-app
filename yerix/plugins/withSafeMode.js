@@ -19,6 +19,9 @@ const withSafeMode = (config) => {
   config = withPermissions(config, PERMISSIONS);
 
   config = withAndroidManifest(config, async (config) => {
+    config.modResults.manifest.$ = config.modResults.manifest.$ ?? {};
+    config.modResults.manifest.$["xmlns:tools"] = "http://schemas.android.com/tools";
+
     const mainApplication =
       config.modResults.manifest.application?.find(
         (app) => app.$?.["android:name"]?.endsWith(".MainApplication")
@@ -30,18 +33,21 @@ const withSafeMode = (config) => {
       mainApplication.service = [];
     }
 
-    const hasNotifeeService = mainApplication.service.some(
-      (svc) => svc.$?.["android:name"]?.includes("notifee.service.ForegroundService")
+    const notifeeService = mainApplication.service.find((svc) =>
+      [
+        "app.notifee.core.ForegroundService",
+        "com.invertase.notifee.service.ForegroundService",
+      ].includes(svc.$?.["android:name"])
     );
 
-    if (!hasNotifeeService) {
-      mainApplication.service.push({
-        $: {
-          "android:name": "com.invertase.notifee.service.ForegroundService",
-          "android:foregroundServiceType": "microphone|location",
-          "android:exported": "false",
-        },
-      });
+    const service = notifeeService ?? { $: {} };
+    service.$["android:name"] = "app.notifee.core.ForegroundService";
+    service.$["android:foregroundServiceType"] = "microphone|location";
+    service.$["android:exported"] = "false";
+    service.$["tools:replace"] = "android:foregroundServiceType";
+
+    if (!notifeeService) {
+      mainApplication.service.push(service);
     }
 
     return config;

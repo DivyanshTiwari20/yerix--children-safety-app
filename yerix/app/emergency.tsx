@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { StyleSheet, Text, View, SafeAreaView, Linking } from "react-native";
+import { Linking, ScrollView, StyleSheet, Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useAppState } from "@/state/store";
 import {
   subscribe,
-  getEmergencyStatus,
   getEmergencyCountdown,
   startEmergencyFlow,
   cancelEmergency,
@@ -16,8 +17,9 @@ import { getContacts, type Contact } from "@/services/api";
 import { openWhatsApp } from "@/services/whatsapp";
 import { EMERGENCY_NUMBER, DEV_USER_ID } from "@/constants";
 import { Button } from "@/components/Button";
-import { Countdown } from "@/components/Countdown";
-import { StatusPill } from "@/components/StatusPill";
+import { Card } from "@/components/Card";
+import { Colors } from "@/theme/colors";
+import { Spacing } from "@/theme/spacing";
 
 export default function EmergencyScreen() {
   const { dispatch } = useAppState();
@@ -29,8 +31,8 @@ export default function EmergencyScreen() {
   const unsub = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    unsub.current = subscribe((st, data) => {
-      setStatus(st);
+    unsub.current = subscribe((nextStatus, data) => {
+      setStatus(nextStatus);
       setSeconds(getEmergencyCountdown());
       setEmergencyId(data.emergencyId);
       setTrackUrl(data.trackUrl);
@@ -44,8 +46,8 @@ export default function EmergencyScreen() {
 
   useEffect(() => {
     if (status === "active" || status === "countdown") {
-      getContacts(DEV_USER_ID).then((cs) => {
-        setContacts((cs ?? []).map((c: Contact) => ({ name: c.name, phone: c.phone })));
+      getContacts(DEV_USER_ID).then((items) => {
+        setContacts((items ?? []).map((contact: Contact) => ({ name: contact.name, phone: contact.phone })));
       });
     }
   }, [status]);
@@ -63,70 +65,97 @@ export default function EmergencyScreen() {
   }, [dispatch]);
 
   const handleCall = () => Linking.openURL(`tel:${EMERGENCY_NUMBER}`);
-
   const isCountdown = status === "countdown";
   const isActive = status === "active";
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Emergency</Text>
-        <StatusPill
-          label={isCountdown ? "Counting down\u2026" : isActive ? "ACTIVE" : "ENDED"}
-          variant={isCountdown || isActive ? "active" : "default"}
-        />
-
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar style="light" hidden={false} />
+      <ScrollView contentContainerStyle={styles.content}>
         {isCountdown ? (
-          <View style={styles.countdownWrap}>
-            <Countdown seconds={seconds} label="seconds until active" />
-            <Text style={styles.hint}>Cancel to abort</Text>
-            <Button onPress={handleCancel} style={styles.cancelBtn}>
+          <View style={styles.countdownContent}>
+            <Text style={styles.eyebrow}>EMERGENCY</Text>
+            <Text style={styles.countdown}>{seconds}</Text>
+            <Text style={styles.countdownLabel}>seconds until help is alerted</Text>
+            <Button
+              variant="outline"
+              onPress={handleCancel}
+              style={styles.cancelButton}
+              textStyle={styles.cancelText}
+            >
               Cancel
             </Button>
           </View>
         ) : (
-          <View style={styles.activeWrap}>
-            <Text style={styles.activeTitle}>Help is on the way</Text>
-            {trackUrl && (
-              <View style={styles.linkCard}>
-                <Text style={styles.linkLabel}>Tracking link</Text>
-                <Text style={styles.linkUrl}>{trackUrl}</Text>
-              </View>
-            )}
-            <View style={styles.actions}>
-              {contacts.length > 0 && trackUrl && (
-                <Button onPress={() => openWhatsApp(contacts[0].phone, trackUrl).catch(() => {})}>
-                  Send WhatsApp
-                </Button>
-              )}
-              <Button variant="outline" onPress={handleCall}>
-                Call {EMERGENCY_NUMBER}
-              </Button>
-            </View>
+          <View style={styles.activeContent}>
+            <Text style={styles.eyebrow}>EMERGENCY</Text>
+            <Text style={styles.activeTitle}>{isActive ? "Help is on the way" : "Emergency ended"}</Text>
+            <Card style={styles.activeCard}>
+              <Text style={styles.cardTitle}>Tracking link</Text>
+              <Text selectable style={styles.trackUrl}>{trackUrl ?? "Preparing your tracking link..."}</Text>
+              {contacts.map((contact) => (
+                <View key={contact.phone} style={styles.contactAction}>
+                  <View style={styles.contactInfo}>
+                    <Text style={styles.contactName}>{contact.name}</Text>
+                    <Text style={styles.contactPhone}>{contact.phone}</Text>
+                  </View>
+                  <Button
+                    onPress={() => trackUrl && openWhatsApp(contact.phone, trackUrl)}
+                    disabled={!trackUrl}
+                    style={styles.whatsAppButton}
+                  >
+                    WhatsApp
+                  </Button>
+                </View>
+              ))}
+              {contacts.length === 0 && <Text style={styles.noContacts}>No emergency contacts added.</Text>}
+            </Card>
+            <Button onPress={handleCall} style={styles.actionButton}>Call {EMERGENCY_NUMBER}</Button>
             {isActive && (
-              <Button variant="danger" onPress={handleSafe} style={styles.safeBtn}>
-                I\u2019m safe
-              </Button>
+              <Button onPress={handleSafe} style={styles.actionButton}>I&apos;m safe</Button>
             )}
           </View>
         )}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fee2e2" },
-  content: { padding: 20, gap: 16, alignItems: "center", justifyContent: "center", flex: 1 },
-  title: { fontSize: 26, fontWeight: "800", color: "#991b1b" },
-  countdownWrap: { alignItems: "center" },
-  hint: { color: "#9ca3af", fontSize: 13, marginTop: 6 },
-  cancelBtn: { marginTop: 10 },
-  activeWrap: { alignItems: "center" },
-  activeTitle: { fontSize: 17, fontWeight: "700", color: "#991b1b", marginTop: 10 },
-  linkCard: { width: "100%", backgroundColor: "#fff", borderRadius: 16, padding: 16, marginTop: 12 },
-  linkLabel: { fontSize: 12, fontWeight: "600", color: "#6b7280", marginBottom: 4 },
-  linkUrl: { fontSize: 13, color: "#dc2626", fontWeight: "600", textAlign: "center" },
-  actions: { flexDirection: "row", gap: 10, marginTop: 14, width: "100", justifyContent: "center" },
-  safeBtn: { marginTop: 14, width: "100%" },
+  safeArea: { flex: 1, backgroundColor: Colors.light.danger },
+  content: { flexGrow: 1, justifyContent: "center", padding: Spacing.screen, gap: Spacing.section },
+  countdownContent: { alignItems: "center", gap: Spacing.two },
+  eyebrow: { color: "rgba(255,255,255,0.82)", fontSize: 13, fontWeight: "700", letterSpacing: 1.4 },
+  countdown: { color: "#FFFFFF", fontSize: 112, fontWeight: "700", lineHeight: 124 },
+  countdownLabel: { color: "#FFFFFF", fontSize: 16, textAlign: "center" },
+  cancelButton: {
+    width: "100%",
+    height: 56,
+    marginTop: Spacing.four,
+    backgroundColor: "#FFFFFF",
+    borderColor: "#FFFFFF",
+    borderRadius: 16,
+  },
+  cancelText: { color: Colors.light.danger },
+  activeContent: { gap: Spacing.section },
+  activeTitle: { color: "#FFFFFF", fontSize: 28, fontWeight: "700" },
+  activeCard: { backgroundColor: "#FFFFFF", borderColor: "#FFFFFF", gap: Spacing.three },
+  cardTitle: { color: Colors.light.text, fontSize: 16, fontWeight: "600" },
+  trackUrl: { color: Colors.light.textSecondary, fontSize: 13, lineHeight: 20 },
+  contactAction: {
+    minHeight: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.two,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+    paddingTop: Spacing.two,
+  },
+  contactInfo: { flex: 1, gap: Spacing.one },
+  contactName: { color: Colors.light.text, fontSize: 14, fontWeight: "600" },
+  contactPhone: { color: Colors.light.textSecondary, fontSize: 12 },
+  whatsAppButton: { width: 116, height: 52, minHeight: 52, paddingHorizontal: Spacing.two },
+  noContacts: { color: Colors.light.textSecondary, fontSize: 13 },
+  actionButton: { width: "100%", height: 52 },
 });

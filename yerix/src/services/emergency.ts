@@ -1,18 +1,21 @@
+import { Alert } from "react-native";
 import {
   startEmergencyApi,
   postLocation,
   cancelEmergencyApi,
   endEmergencyApi,
   getContacts,
+  getSettings,
 } from "@/services/api";
 import { openWhatsApp } from "@/services/whatsapp";
-import { getCurrentLocation, watchLocation } from "@/services/location";
+import { getCurrentLocation, watchLocation, type Coordinates } from "@/services/location";
 import {
   COUNTDOWN_SECONDS,
   LOCATION_INTERVAL_MS,
   TRIGGER_DEBOUNCE_MS,
   DEV_USER_ID,
 } from "@/constants";
+import { displayEmergencyNotification } from "@/services/foregroundTask";
 
 export type EmergencyStatus = "idle" | "countdown" | "active" | "ended";
 
@@ -76,27 +79,62 @@ async function goActive(trigger: string): Promise<void> {
   emit();
 
   try {
-    const { lat, lng } = await getCurrentLocation();
-    const { id, trackUrl: url } = await startEmergencyApi(DEV_USER_ID, trigger, lat, lng);
+    await displayEmergencyNotification();
+  } catch (error) {
+    console.error("Failed to display local emergency notification", error);
+  }
+
+  let coordinates: Coordinates | null = null;
+  try {
+    coordinates = await getCurrentLocation();
+  } catch (error) {
+    console.error("Failed to get emergency location", error);
+    Alert.alert("Unable to get location");
+  }
+
+  try {
+    const { id, trackUrl: url } = await startEmergencyApi(
+      DEV_USER_ID,
+      trigger,
+      coordinates?.lat ?? null,
+      coordinates?.lng ?? null
+    );
     emergencyId = id;
     trackUrl = url;
     emit();
 
-    const watch = await watchLocation((la, lo) => {
-      if (emergencyId) {
-        postLocation(emergencyId, la, lo).catch(() => {});
+    if (coordinates) {
+      try {
+        locationSub = await watchLocation((la, lo) => {
+          if (emergencyId) {
+            postLocation(emergencyId, la, lo).catch(() => {});
+          }
+        });
+      } catch (error) {
+        console.error("Failed to start emergency location updates", error);
+        Alert.alert("Unable to share location");
       }
-    });
-    locationSub = watch;
+    }
 
     locationTimer = setInterval(() => {}, LOCATION_INTERVAL_MS);
 
     const contacts = await getContacts(DEV_USER_ID);
     if (contacts?.length > 0 && trackUrl) {
-      openWhatsApp(contacts[0].phone, trackUrl).catch(() => {});
+      let alertMessage = "I need help. Here is my live location:";
+      try {
+        const settings = await getSettings(DEV_USER_ID);
+        alertMessage = settings.alert_message.trim() || alertMessage;
+      } catch (error) {
+        console.error("Failed to load WhatsApp alert message", error);
+      }
+      openWhatsApp(contacts[0].phone, `${alertMessage} ${trackUrl}`).catch((error) => {
+        console.error("Failed to open WhatsApp alert", error);
+        Alert.alert("Unable to open WhatsApp", String((error as Error).message));
+      });
     }
   } catch (e) {
     console.error("emergency active error", e);
+    Alert.alert("Unable to start emergency");
   }
 }
 
