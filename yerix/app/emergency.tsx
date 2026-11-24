@@ -16,7 +16,7 @@ import {
   type EmergencyStatus,
 } from "@/services/emergency";
 import { getContacts, type Contact } from "@/services/api";
-import { EMERGENCY_NUMBER, DEV_USER_ID } from "@/constants";
+import { EMERGENCY_NUMBER } from "@/constants";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { Colors } from "@/theme/colors";
@@ -50,7 +50,7 @@ export default function EmergencyScreen() {
 
   useEffect(() => {
     if (status === "active" || status === "countdown") {
-      getContacts(DEV_USER_ID).then((items) => {
+      getContacts().then((items) => {
         setContacts((items ?? []).map((contact: Contact) => ({ name: contact.name, phone: contact.phone })));
       });
     }

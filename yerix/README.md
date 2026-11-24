@@ -42,6 +42,21 @@ Foreground-service, Vosk model packaging, and full-screen emergency notification
 
 For local phone testing, the configured API URL is `http://192.168.1.34:3000`. The server listens on port 3000; start it from `yerix-server` with `npx tsx src/index.ts`. If the PC's LAN IP changes, update `yerix/.env`, `yerix/eas.json`, and `yerix-server/.env` together. The PC and phone must be able to reach each other over the LAN.
 
+## Google sign-in and first launch
+
+The app opens with **Continue with Google**. After the first successful sign-in, users complete a short profile form (name and optional phone number); returning users go directly to the app. User IDs come from verified Supabase Auth sessions, not a shared development ID.
+
+Configure these values in `yerix-server/.env` (copy from `.env.example`):
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY` (public Supabase key, kept on the server for auth token exchange)
+- `SUPABASE_SERVICE_KEY` (server-only secret; never put this in the app)
+- `AUTH_REDIRECT_URL=yerix://auth/callback`
+
+In the Supabase Dashboard, enable Google under **Authentication → Providers → Google**. In Google Cloud, create a **Web application** OAuth client and enter its client ID and secret in the Supabase Google provider settings. Add the Supabase callback URL shown on that provider page to the Google OAuth client's authorized redirect URIs. Add `yerix://auth/callback` to Supabase **Authentication → URL Configuration → Redirect URLs**. Do not put the Google client secret in the app or any `EXPO_PUBLIC_*` variable.
+
+Apply the updated `yerix-server/schema.sql` to the Supabase project to create the profiles table and grant server access. Set `EXPO_PUBLIC_API_URL` in `yerix/.env` and the EAS build profile to the reachable backend URL. Then restart/rebuild the development APK so the app has the correct environment and URL scheme.
+
 A standalone APK that does not require Metro needs a separate non-development EAS profile with Android APK output; the current `preview` and `production` profiles are empty. Configure `SUPABASE_URL` and the server-only `SUPABASE_SERVICE_KEY` in `yerix-server/.env`. For Twilio SMS/calls, configure `TWILIO_ACCOUNT_SID`, `TWILIO_FROM_NUMBER`, and either `TWILIO_AUTH_TOKEN` or both `TWILIO_API_KEY_SID` and `TWILIO_API_KEY_SECRET`. Set `PUBLIC_BASE_URL` to a URL reachable by emergency contacts; `localhost` and private LAN addresses will not work for recipients outside your network. Never put the Supabase service key or Twilio secrets in the app or commit them. WhatsApp uses the saved Alert message and opens a draft for the user to send; it does not send automatically. Emergency alerts on this phone are local notifications, not remote push notifications. Do not use the app as an emergency service until the backend and notification paths have been configured and tested.
 
 ## Get a fresh project

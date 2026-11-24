@@ -1,6 +1,14 @@
 -- RLS is disabled for now (server uses service key only).
 -- TODO: Enable RLS and add policies before production.
 
+create table if not exists profiles (
+  user_id uuid primary key,
+  full_name text not null,
+  phone text not null default '',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists contacts (
   id uuid primary key default gen_random_uuid(),
   user_id text not null,
@@ -34,6 +42,7 @@ create table if not exists location_points (
 );
 
 grant usage on schema public to service_role;
+grant select, insert, update on table public.profiles to service_role;
 grant select, insert, delete on table public.contacts to service_role;
 grant select, insert, update on table public.settings to service_role;
 grant select, insert, update on table public.emergencies to service_role;

@@ -6,7 +6,7 @@ import { addContact, deleteContact, getContacts, type Contact } from "@/services
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { ContactRow } from "@/components/ContactRow";
-import { DEV_USER_ID, MAX_CONTACTS } from "@/constants";
+import { MAX_CONTACTS } from "@/constants";
 import { Colors } from "@/theme/colors";
 import { Spacing } from "@/theme/spacing";
 
@@ -28,7 +28,7 @@ export default function ContactsScreen() {
   const load = async () => {
     setLoading(true);
     try {
-      setContacts(await getContacts(DEV_USER_ID));
+      setContacts(await getContacts());
     } catch (error) {
       Alert.alert("Error", String((error as Error).message));
     } finally {
@@ -49,7 +49,7 @@ export default function ContactsScreen() {
     }
     setLoading(true);
     try {
-      const contact = await addContact(DEV_USER_ID, name.trim(), `+91${nationalNumber}`);
+      const contact = await addContact(name.trim(), `+91${nationalNumber}`);
       setContacts([...contacts, contact]);
       setName("");
       setPhone("");
@@ -63,7 +63,7 @@ export default function ContactsScreen() {
   const handleDelete = async (id: string) => {
     setLoading(true);
     try {
-      await deleteContact(DEV_USER_ID, id);
+      await deleteContact(id);
       setContacts(contacts.filter((contact) => contact.id !== id));
     } catch (error) {
       Alert.alert("Error", String((error as Error).message));

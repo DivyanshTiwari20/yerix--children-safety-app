@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { createHash, randomBytes } from "node:crypto";
 import express from "express";
 import cors from "cors";
 import { createClient } from "@supabase/supabase-js";
@@ -12,10 +13,11 @@ declare global {
   }
 }
 
-const DEV_USER_ID = "dev-user-1";
 const PORT = Number(process.env.PORT) || 4000;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY;
+const AUTH_REDIRECT_URL = process.env.AUTH_REDIRECT_URL || "yerix://auth/callback";
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_API_KEY_SID = process.env.TWILIO_API_KEY_SID;
@@ -44,14 +46,104 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use((req, res, next) => {
-  const header = req.header("x-user-id");
-  req.userId = Array.isArray(header) ? header[0] : (header || DEV_USER_ID);
+app.use(async (req, res, next) => {
+  const isPublic =
+    req.path === "/health" ||
+    req.path.startsWith("/api/auth/google/") ||
+    req.path === "/api/auth/refresh" ||
+    req.path.startsWith("/api/track/") ||
+    req.path.startsWith("/track/");
+  if (isPublic) return next();
+
+  const authorization = req.header("authorization");
+  const accessToken = authorization?.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!accessToken) return res.status(401).json({ error: "authentication required" });
+  const { data, error } = await supabase.auth.getUser(accessToken);
+  if (error || !data.user) return res.status(401).json({ error: "invalid or expired access token" });
+  req.userId = data.user.id;
   next();
 });
 
 app.get("/health", (_req: express.Request, res: express.Response) => {
   res.json({ ok: true });
+});
+
+app.post("/api/auth/google/start", (_req: express.Request, res: express.Response) => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res.status(503).json({ error: "Google sign-in is not configured on the server" });
+  }
+  const codeVerifier = randomBytes(32).toString("base64url");
+  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
+  const authUrl = new URL("/auth/v1/authorize", SUPABASE_URL);
+  authUrl.searchParams.set("provider", "google");
+  authUrl.searchParams.set("redirect_to", AUTH_REDIRECT_URL);
+  authUrl.searchParams.set("flow_type", "pkce");
+  authUrl.searchParams.set("code_challenge", codeChallenge);
+  authUrl.searchParams.set("code_challenge_method", "s256");
+  res.json({ authUrl: authUrl.toString(), redirectUrl: AUTH_REDIRECT_URL, codeVerifier });
+});
+
+app.post("/api/auth/google/exchange", async (req: express.Request, res: express.Response) => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res.status(503).json({ error: "Google sign-in is not configured on the server" });
+  }
+  const { code, codeVerifier } = req.body as { code?: string; codeVerifier?: string };
+  if (typeof code !== "string" || typeof codeVerifier !== "string" || codeVerifier.length < 43) {
+    return res.status(400).json({ error: "authorization code and verifier are required" });
+  }
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, "content-type": "application/json" },
+    body: JSON.stringify({ auth_code: code, code_verifier: codeVerifier }),
+  });
+  const body = await response.json();
+  if (!response.ok) return res.status(response.status).json({ error: body.msg || body.message || "Google sign-in failed" });
+  res.json(body);
+});
+
+app.post("/api/auth/refresh", async (req: express.Request, res: express.Response) => {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res.status(503).json({ error: "Authentication is not configured on the server" });
+  }
+  const { refreshToken } = req.body as { refreshToken?: string };
+  if (typeof refreshToken !== "string" || !refreshToken) {
+    return res.status(400).json({ error: "refresh token is required" });
+  }
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+    method: "POST",
+    headers: { apikey: SUPABASE_ANON_KEY, "content-type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  const body = await response.json();
+  if (!response.ok) return res.status(response.status).json({ error: body.msg || body.message || "session refresh failed" });
+  res.json(body);
+});
+
+app.get("/api/profile", async (req: express.Request, res: express.Response) => {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, full_name, phone")
+    .eq("user_id", req.userId)
+    .maybeSingle();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.put("/api/profile", async (req: express.Request, res: express.Response) => {
+  const { full_name, phone } = req.body as { full_name?: string; phone?: string };
+  if (typeof full_name !== "string" || !full_name.trim() || full_name.trim().length > 100) {
+    return res.status(400).json({ error: "a name between 1 and 100 characters is required" });
+  }
+  if (typeof phone !== "string" || phone.trim().length > 32) {
+    return res.status(400).json({ error: "phone number must be 32 characters or fewer" });
+  }
+  const { data, error } = await supabase
+    .from("profiles")
+    .upsert({ user_id: req.userId, full_name: full_name.trim(), phone: phone.trim() })
+    .select("user_id, full_name, phone")
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 });
 
 app.get("/api/contacts", async (req: express.Request, res: express.Response) => {

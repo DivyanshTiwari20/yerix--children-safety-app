@@ -1,4 +1,3 @@
-export const DEV_USER_ID = "dev-user-1";
 export const MAX_CONTACTS = 5;
 export const COUNTDOWN_SECONDS = 5;
 export const LOCATION_INTERVAL_MS = 5000;

@@ -15,16 +15,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAppState } from "@/state/store";
 import { getSettings, putSettings, type Settings } from "@/services/api";
+import { useAuth } from "@/state/auth";
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
 import { COMMAND_PHRASES, WAKE_PHRASES } from "@/constants";
-import { DEV_USER_ID } from "@/constants";
 import { getDirectTriggerPreference, setDirectTriggerPreference } from "@/services/voicePreferences";
 import { Colors } from "@/theme/colors";
 import { Spacing } from "@/theme/spacing";
 
 export default function SettingsScreen() {
   const { dispatch } = useAppState();
+  const { user, profile, signOut } = useAuth();
   const scheme = useColorScheme();
   const colors = Colors[scheme === "dark" ? "dark" : "light"];
   const [settings, setSettings] = useState<Settings>({
@@ -36,6 +37,14 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(false);
   const pan = useRef(new Animated.Value(0)).current;
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      Alert.alert("Could not sign out", String((error as Error).message ?? error));
+    }
+  };
+
   useEffect(() => {
     load();
     loadDirectTrigger();
@@ -44,7 +53,7 @@ export default function SettingsScreen() {
   const load = async () => {
     setLoading(true);
     try {
-      setSettings(await getSettings(DEV_USER_ID));
+      setSettings(await getSettings());
     } catch (error) {
       Alert.alert("Error", String((error as Error).message));
     } finally {
@@ -72,7 +81,7 @@ export default function SettingsScreen() {
   const save = async () => {
     setLoading(true);
     try {
-      await putSettings(DEV_USER_ID, settings);
+      await putSettings(settings);
     } catch (error) {
       Alert.alert("Error", String((error as Error).message));
     } finally {
@@ -178,6 +187,22 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Account</Text>
+          <Card style={styles.aboutCard}>
+            <View style={styles.accountDetails}>
+              <Text style={[styles.aboutName, { color: colors.text }]}>{profile?.full_name ?? user?.email}</Text>
+              <Text style={[styles.aboutVersion, { color: colors.textSecondary }]}>{user?.email}</Text>
+              {profile?.phone ? (
+                <Text style={[styles.aboutVersion, { color: colors.textSecondary }]}>{profile.phone}</Text>
+              ) : null}
+            </View>
+            <Button variant="outline" onPress={handleSignOut} style={styles.signOutButton}>
+              Sign out
+            </Button>
+          </Card>
+        </View>
+
+        <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>About</Text>
           <Card style={styles.aboutCard}>
             <View style={styles.aboutRow}>
@@ -222,6 +247,8 @@ const styles = StyleSheet.create({
   phraseChipText: { fontSize: 12, fontWeight: "500" },
   aboutCard: { paddingVertical: Spacing.one, paddingHorizontal: Spacing.three },
   aboutRow: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  accountDetails: { gap: Spacing.one, marginBottom: Spacing.two },
+  signOutButton: { height: 48 },
   aboutName: { fontSize: 15, fontWeight: "700" },
   aboutVersion: { fontSize: 13 },
   saveButton: { width: "100%", height: 52 },

@@ -13,7 +13,6 @@ import {
   COUNTDOWN_SECONDS,
   LOCATION_INTERVAL_MS,
   TRIGGER_DEBOUNCE_MS,
-  DEV_USER_ID,
 } from "@/constants";
 import {
   clearEmergencyNotification,
@@ -109,7 +108,6 @@ async function goActive(trigger: string): Promise<void> {
 
   try {
     const { id, trackUrl: url } = await startEmergencyApi(
-      DEV_USER_ID,
       trigger,
       coordinates?.lat ?? null,
       coordinates?.lng ?? null
@@ -146,7 +144,7 @@ async function goActive(trigger: string): Promise<void> {
 }
 
 async function sendWhatsAppAlert(url: string): Promise<void> {
-  const contacts = await getContacts(DEV_USER_ID);
+  const contacts = await getContacts();
   if (contacts.length === 0) {
     Alert.alert("No emergency contacts", "Add a contact to send a WhatsApp alert.");
     return;
@@ -158,7 +156,7 @@ async function sendWhatsAppAlert(url: string): Promise<void> {
 export async function openWhatsAppAlertForContact(phone: string, url: string): Promise<void> {
   let alertMessage = "I need help. Here is my live location:";
   try {
-    const settings = await getSettings(DEV_USER_ID);
+    const settings = await getSettings();
     alertMessage = settings.alert_message.trim() || alertMessage;
   } catch (error) {
     console.error("Failed to load WhatsApp alert message", error);
@@ -190,7 +188,7 @@ export function cancelEmergency(): void {
     countdownTimer = null;
   }
   if (emergencyId) {
-    cancelEmergencyApi(emergencyId, DEV_USER_ID).catch(() => {});
+    cancelEmergencyApi(emergencyId).catch(() => {});
     emergencyId = null;
   }
   lastCoordinates = null;
@@ -212,7 +210,7 @@ export function endEmergency(): void {
     locationSub = null;
   }
   if (emergencyId) {
-    endEmergencyApi(emergencyId, DEV_USER_ID).catch(() => {});
+    endEmergencyApi(emergencyId).catch(() => {});
     emergencyId = null;
   }
   lastCoordinates = null;
